@@ -1,7 +1,7 @@
 
 ## Pioreactor LED calibration plugin
 
-![CI tests](https://github.com/kellytr/pioreactor-led-calibration-plugin/actions/workflows/ci.yaml/badge.svg)
+![CI tests](https://github.com/pioreactor/pioreactor-led-calibration-plugin/actions/workflows/ci.yaml/badge.svg)
 
 The LED automations available on the Pioreactor are limited: light intensity percentages are based on the power supplied to the LED wires. For specific research and for comparing results between Pioreactors, this plugin can be used to determine the exact LED intensity values.
 
@@ -50,7 +50,7 @@ The following subcommands are available:
 ### **list**
 Prints a table with all existing calibrations stored on the leader. Headings include unique names, timestamps, and channels.
 
-| Name | Timetamp | Channel | Currently in use? |
+| Name | Timestamp | Channel | Currently in use? |
 |------|----------|---------|-------------------|
 | Algae_C_2022 | 2022-08-29T20:12:00.400000Z | C | ✅ |
 | Algae_B_2022 | 2022-08-29T20:13:00.400000Z | B | ✅ |
