@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import click
+from datetime import datetime
 from msgspec.json import decode
 from msgspec.json import encode
 from pioreactor import structs
@@ -11,14 +12,14 @@ from pioreactor.pubsub import publish
 from pioreactor.utils import is_pio_job_running
 from pioreactor.utils import local_persistant_storage
 from pioreactor.utils import publish_ready_to_disconnected_state
-from pioreactor.utils.timing import current_utc_timestamp
+from pioreactor.utils.timing import current_utc_datetime
 from pioreactor.whoami import get_latest_testing_experiment_name
 from pioreactor.whoami import get_unit_name
 from pioreactor.whoami import UNIVERSAL_EXPERIMENT
 
 
 class LEDCalibration(structs.Calibration):
-    timestamp: str
+    timestamp: datetime
     name: str
     max_intensity: float
     min_intensity: float
@@ -195,7 +196,7 @@ def save_results_locally(
     channel,
 ) -> structs.LEDCalibration:
     data_blob = LEDCalibration(
-        timestamp=current_utc_timestamp(),
+        timestamp=current_utc_datetime(),
         name=name,
         max_intensity=max_intensity,
         min_intensity=0,
@@ -256,32 +257,36 @@ def led_calibration(min_intensity, max_intensity):
         return
 
 
-def display_current() -> None:
+def display_current(name: str | None) -> None:
     from pprint import pprint
 
-    with local_persistant_storage("current_led_calibration") as c:
-        if c.keys():
+    def display_from_calibration_blob(data_blob: dict) -> None:
+        data_blob = decode(c[channel])
+        lightprobe_readings = data_blob["lightprobe_readings"]
+        led_intensities = data_blob["led_intensities"]
+        name, channel = data_blob["name"], data_blob["channel"]
+        plot_data(
+            led_intensities,
+            lightprobe_readings,
+            title=f"{name}, channel {channel}",
+            highlight_recent_point=False,
+        )  # TODO: add interpolation curve
+        click.echo(click.style(f"Data for {name}", underline=True, bold=True))
+        pprint(data_blob)
+
+    if name is not None:
+        with local_persistant_storage("led_calibrations") as c:
+            display_from_calibration_blob(decode(c[name]))
+    else:
+        with local_persistant_storage("current_led_calibration") as c:
             for channel in c.keys():
-                data_blob = decode(c[channel])
-                lightprobe_readings = data_blob["lightprobe_readings"]
-                led_intensities = data_blob["led_intensities"]
-                name, channel = data_blob["name"], data_blob["channel"]
-                plot_data(
-                    led_intensities,
-                    lightprobe_readings,
-                    title=f"{name}, channel {channel}",
-                    highlight_recent_point=False,
-                )  # TODO: add interpolation curve
-                click.echo(click.style(f"Data for {name}", underline=True, bold=True))
-                pprint(data_blob)
+                display_from_calibration_blob(decode(c[channel]))
                 click.echo()
                 click.echo()
                 click.echo()
-        else:
-            click.echo("No calibrations exist. Please calibrate and try again.")
 
 
-def change_current(name) -> None:
+def change_current(name: str) -> None:
     try:
         with local_persistant_storage("led_calibrations") as c:
             calibration = decode(c[name], type=LEDCalibration)
@@ -297,6 +302,14 @@ def change_current(name) -> None:
 
 
 def list_():
+    # get current calibrations
+    current = []
+    with local_persistant_storage("current_led_calibration") as c:
+        for ch in c.keys():
+            cal = decode(c[ch], type=LEDCalibration)
+            current.append(cal.name)
+
+
     click.secho(
         f"{'Name':15s} {'Timestamp':35s} {'Channel':20s}",
         bold=True,
@@ -306,7 +319,7 @@ def list_():
             try:
                 cal = decode(c[name], type=LEDCalibration)
                 click.secho(
-                    f"{cal.name:15s} {cal.timestamp:35s} {cal.channel:20s}",
+                    f"{cal.name:15s} {cal.timestamp:%d %b, %Y}       {cal.channel:12s} {'✅' if cal.name in current else ''}",
                 )
             except Exception as e:
                 raise e
@@ -317,7 +330,7 @@ def list_():
 @click.pass_context
 @click.option("--min-intensity", type=float)
 @click.option("--max-intensity", type=float)
-def click_led_calibration(ctx, min_intensity, max_intensity):
+def click_led_calibration(ctx, min_intensity: float, max_intensity: float):
     """
     Calibrate LED intensity.
     """
@@ -332,14 +345,15 @@ def click_led_calibration(ctx, min_intensity, max_intensity):
         led_calibration(min_intensity, max_intensity)
 
 
-@click_led_calibration.command(name="display_current")
-def click_display_current():
-    display_current()
+@click_led_calibration.command(name="display")
+@click.option("-n", "--name", type=click.STRING)
+def click_display(name: str | None):
+    display(name)
 
 
 @click_led_calibration.command(name="change_current")
 @click.argument("name", type=click.STRING)
-def click_change_current(name):
+def click_change_current(name: str):
     change_current(name)
 
 
