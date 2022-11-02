@@ -16,7 +16,6 @@ from .led_calibration import LEDCalibration
 
 
 def pause(n=1) -> None:
-    # to avoid race conditions when updating state
     time.sleep(n * 0.5)
 
 
@@ -24,9 +23,11 @@ def test_led_fails_if_calibration_not_present():
     experiment = "test_led_fails_if_calibration_not_present"
     unit = get_unit_name()
 
-    with local_persistant_storage("led_calibrations") as cache:
-        del cache["C"]
-        del cache["D"]
+    with local_persistant_storage("current_led_calibration") as cache:
+        if "C" in cache:
+            del cache["C"]
+        if "D" in cache:
+            del cache["D"]
 
     with pytest.raises(CalibrationError):
 

@@ -17,7 +17,7 @@ class CalibratedLightDarkCycle(LEDAutomationJobContrib):
     Follows as h light / h dark cycle. Starts light ON.
     """
 
-    automation_name: str = "calibrated_light_dark_cycle"
+    automation_name = "calibrated_light_dark_cycle"
     published_settings = {
         "duration": {
             "datatype": "float",
@@ -57,7 +57,9 @@ class CalibratedLightDarkCycle(LEDAutomationJobContrib):
         with local_persistant_storage("current_led_calibration") as cache:
             led_calibration = decode(cache[channel], type=LEDCalibration)
 
-            intensity_percent = (self.light_intensity - led_calibration.curve_data_[1]) / led_calibration.curve_data_[0]
+            intensity_percent = (
+                self.light_intensity - led_calibration.curve_data_[1]
+            ) / led_calibration.curve_data_[0]
 
             return clamp(0, intensity_percent, 100)
 
