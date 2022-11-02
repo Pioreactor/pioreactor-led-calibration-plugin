@@ -222,11 +222,11 @@ def save_results_locally(
 
 
 ## general schematic of what's gonna happen
-def led_calibration(min_intensity, max_intensity):
+def led_calibration(min_intensity: float, max_intensity: float):
     unit = get_unit_name()
     experiment = get_latest_testing_experiment_name()
 
-    if is_pio_job_running("stirring", "od_reading"):
+    if any(is_pio_job_running(["stirring", "od_reading"])):
         raise ValueError("Stirring and OD reading should be turned off.")
 
     with publish_ready_to_disconnected_state(unit, experiment, "led_calibration"):
@@ -257,11 +257,10 @@ def led_calibration(min_intensity, max_intensity):
         return
 
 
-def display_current(name: str | None) -> None:
+def display(name: str | None) -> None:
     from pprint import pprint
 
     def display_from_calibration_blob(data_blob: dict) -> None:
-        data_blob = decode(c[channel])
         lightprobe_readings = data_blob["lightprobe_readings"]
         led_intensities = data_blob["led_intensities"]
         name, channel = data_blob["name"], data_blob["channel"]
@@ -296,8 +295,8 @@ def change_current(name: str) -> None:
             name_being_bumped = decode(c[channel], type=LEDCalibration).name
             c[channel] = encode(calibration)
         click.echo(f"Swapped {name_being_bumped} for {name} ✅")
-    except Exception:
-        click.echo("Failed to swap.")
+    except Exception as e:
+        click.echo(f"Failed to swap. {e}")
         raise click.Abort()
 
 
@@ -311,7 +310,7 @@ def list_():
 
 
     click.secho(
-        f"{'Name':15s} {'Timestamp':35s} {'Channel':20s}",
+        f"{'Name':15s} {'Date':18s} {'Pump type':12s} {'Currently in use?':20s}",
         bold=True,
     )
     with local_persistant_storage("led_calibrations") as c:
