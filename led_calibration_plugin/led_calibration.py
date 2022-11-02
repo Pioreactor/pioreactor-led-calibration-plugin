@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import click
 from datetime import datetime
+
+import click
 from msgspec.json import decode
 from msgspec.json import encode
 from pioreactor import structs
@@ -75,7 +76,9 @@ def setup_probe_instructions():
     )
 
 
-def plot_data(x, y, title, x_min=None, x_max=None, interpolation_curve=None, highlight_recent_point=True):
+def plot_data(
+    x, y, title, x_min=None, x_max=None, interpolation_curve=None, highlight_recent_point=True
+):
     import plotext as plt
 
     plt.clf()
@@ -236,7 +239,9 @@ def led_calibration(min_intensity: float, max_intensity: float):
         setup_probe_instructions()
 
         # retrieve readings from the light probe and list of led intensities
-        lightprobe_readings, led_intensities = start_recording(channel, min_intensity, max_intensity)
+        lightprobe_readings, led_intensities = start_recording(
+            channel, min_intensity, max_intensity
+        )
 
         curve, curve_type = calculate_curve_of_best_fit(lightprobe_readings, led_intensities, 1)
         show_results_and_confirm_with_user(curve, curve_type, lightprobe_readings, led_intensities)
@@ -300,14 +305,13 @@ def change_current(name: str) -> None:
         raise click.Abort()
 
 
-def list_():
+def list_() -> None:
     # get current calibrations
     current = []
     with local_persistant_storage("current_led_calibration") as c:
         for ch in c.keys():
             cal = decode(c[ch], type=LEDCalibration)
             current.append(cal.name)
-
 
     click.secho(
         f"{'Name':15s} {'Date':18s} {'Pump type':12s} {'Currently in use?':20s}",
