@@ -51,7 +51,8 @@ def test_set_intensity_au_above_max() -> None:
     with local_persistant_storage("current_led_calibration") as cache:
         cache["C"] = encode(
             LEDCalibration(
-                timestamp=current_utc_timestamp(),
+                created_at=current_utc_timestamp(),
+                pioreactor_unit=unit,
                 name=experiment,
                 max_intensity=100,
                 min_intensity=0,
@@ -67,7 +68,8 @@ def test_set_intensity_au_above_max() -> None:
 
         cache["D"] = encode(
             LEDCalibration(
-                timestamp=current_utc_timestamp(),
+                created_at=current_utc_timestamp(),
+                pioreactor_unit=unit,
                 name=experiment,
                 max_intensity=100,
                 min_intensity=0,
@@ -105,7 +107,8 @@ def test_set_intensity_au_negative() -> None:
     with local_persistant_storage("current_led_calibration") as cache:
         cache["C"] = encode(
             LEDCalibration(
-                timestamp=current_utc_timestamp(),
+                created_at=current_utc_timestamp(),
+                pioreactor_unit=unit,
                 name=experiment,
                 max_intensity=100,
                 min_intensity=0,
@@ -121,7 +124,8 @@ def test_set_intensity_au_negative() -> None:
 
         cache["D"] = encode(
             LEDCalibration(
-                timestamp=current_utc_timestamp(),
+                created_at=current_utc_timestamp(),
+                pioreactor_unit=unit,
                 name=experiment,
                 max_intensity=100,
                 min_intensity=0,
@@ -160,7 +164,8 @@ def test_set_curve_data_negative() -> None:
     with local_persistant_storage("current_led_calibration") as cache:
         cache["C"] = encode(
             LEDCalibration(
-                timestamp=current_utc_timestamp(),
+                created_at=current_utc_timestamp(),
+                pioreactor_unit=unit,
                 name=experiment,
                 max_intensity=100,
                 min_intensity=0,
@@ -177,7 +182,8 @@ def test_set_curve_data_negative() -> None:
     with local_persistant_storage("current_led_calibration") as cache:
         cache["D"] = encode(
             LEDCalibration(
-                timestamp=current_utc_timestamp(),
+                created_at=current_utc_timestamp(),
+                pioreactor_unit=unit,
                 name=experiment,
                 max_intensity=100,
                 min_intensity=0,

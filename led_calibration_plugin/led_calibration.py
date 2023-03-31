@@ -9,18 +9,20 @@ from msgspec.json import encode
 from pioreactor import structs
 from pioreactor import types as pt
 from pioreactor.actions.led_intensity import led_intensity
-from pioreactor.pubsub import publish
+from pioreactor.config import leader_address
+from pioreactor.mureq import patch
+from pioreactor.mureq import put
 from pioreactor.utils import is_pio_job_running
 from pioreactor.utils import local_persistant_storage
 from pioreactor.utils import publish_ready_to_disconnected_state
 from pioreactor.utils.timing import current_utc_datetime
 from pioreactor.whoami import get_latest_testing_experiment_name
 from pioreactor.whoami import get_unit_name
-from pioreactor.whoami import UNIVERSAL_EXPERIMENT
 
 
 class LEDCalibration(structs.Calibration):
-    timestamp: datetime
+    created_at: datetime
+    pioreactor_unit: str
     name: str
     max_intensity: float
     min_intensity: float
@@ -98,7 +100,7 @@ def plot_data(
     plt.show()
 
 
-def start_recording(channel, min_intensity, max_intensity):
+def start_recording(channel: pt.LedChannel, min_intensity, max_intensity):
     led_intensity(
         desired_state={"A": 0, "B": 0, "C": 0, "D": 0},
         unit=get_unit_name(),
@@ -188,7 +190,7 @@ def show_results_and_confirm_with_user(curve, curve_type, lightprobe_readings, l
     click.confirm("Confirm and save to disk?", abort=True, default=True)
 
 
-def save_results_locally(
+def save_results(
     curve_data_: list[float],
     curve_type: str,
     lightprobe_readings: list[float],
@@ -196,10 +198,12 @@ def save_results_locally(
     name: str,
     max_intensity: float,
     min_intensity: float,
-    channel,
-) -> structs.LEDCalibration:
+    channel: pt.LedChannel,
+    unit: str,
+) -> LEDCalibration:
     data_blob = LEDCalibration(
-        timestamp=current_utc_datetime(),
+        created_at=current_utc_datetime(),
+        pioreactor_unit=unit,
         name=name,
         max_intensity=max_intensity,
         min_intensity=0,
@@ -215,11 +219,8 @@ def save_results_locally(
     with local_persistant_storage("led_calibrations") as cache:
         cache[name] = encode(data_blob)
 
-    with local_persistant_storage("current_led_calibration") as cache:
-        cache[channel] = encode(data_blob)
-
-    # send to MQTT
-    publish(f"pioreactor/{get_unit_name()}/{UNIVERSAL_EXPERIMENT}/calibrations", encode(data_blob))
+    publish_to_leader(name)
+    change_current(name)
 
     return data_blob
 
@@ -246,7 +247,7 @@ def led_calibration(min_intensity: float, max_intensity: float):
         curve, curve_type = calculate_curve_of_best_fit(lightprobe_readings, led_intensities, 1)
         show_results_and_confirm_with_user(curve, curve_type, lightprobe_readings, led_intensities)
 
-        data_blob = save_results_locally(
+        data_blob = save_results(
             curve,
             curve_type,
             lightprobe_readings,
@@ -255,6 +256,7 @@ def led_calibration(min_intensity: float, max_intensity: float):
             max_intensity,
             min_intensity,
             channel,
+            unit,
         )
         click.echo(click.style(f"Data for {name}", underline=True, bold=True))
         click.echo(data_blob)
@@ -290,18 +292,58 @@ def display(name: str | None) -> None:
                 click.echo()
 
 
+def publish_to_leader(name: str) -> bool:
+    success = True
+
+    with local_persistant_storage("led_calibrations") as all_calibrations:
+        calibration_result = decode(all_calibrations[name], type=LEDCalibration)
+
+    try:
+        res = put(
+            f"http://{leader_address}/api/calibrations",
+            encode(calibration_result),
+            headers={"Content-Type": "application/json"},
+        )
+        if not res.ok:
+            success = False
+    except Exception as e:
+        print(e)
+        success = False
+    if not success:
+        click.echo(
+            f"Could not update in database on leader at http://{leader_address}/api/calibrations ❌"
+        )
+    return success
+
+
 def change_current(name: str) -> None:
     try:
-        with local_persistant_storage("led_calibrations") as c:
-            calibration = decode(c[name], type=LEDCalibration)
+        with local_persistant_storage("led_calibrations") as all_calibrations:
+            new_calibration = decode(all_calibrations[name], type=LEDCalibration)
 
-        channel = calibration.channel
-        with local_persistant_storage("current_led_calibration") as c:
-            name_being_bumped = decode(c[channel], type=LEDCalibration).name
-            c[channel] = encode(calibration)
-        click.echo(f"Swapped {name_being_bumped} for {name} ✅")
-    except Exception as e:
-        click.echo(f"Failed to swap. {e}")
+        channel = new_calibration.channel
+        with local_persistant_storage("current_led_calibration") as current_calibrations:
+            if channel in current_calibrations:
+                old_calibration = decode(current_calibrations[channel], type=LEDCalibration)
+            else:
+                old_calibration = None
+
+            current_calibrations[channel] = encode(new_calibration)
+
+        res = patch(
+            f"http://{leader_address}/api/calibrations/{get_unit_name()}/{new_calibration.type}/{new_calibration.name}",
+            json={"current": 1},
+        )
+        if not res.ok:
+            click.echo("Could not update in database on leader ❌")
+
+        if old_calibration:
+            click.echo(f"Replaced {old_calibration.name} with {new_calibration.name}   ✅")
+        else:
+            click.echo(f"Set {new_calibration.name} to current calibration  ✅")
+
+    except Exception:
+        click.echo("Failed to swap.")
         raise click.Abort()
 
 
@@ -314,7 +356,7 @@ def list_() -> None:
             current.append(cal.name)
 
     click.secho(
-        f"{'Name':15s} {'Date':18s} {'Pump type':12s} {'Currently in use?':20s}",
+        f"{'Name':15s} {'Date':18s} {'Channel':12s} {'Currently in use?':20s}",
         bold=True,
     )
     with local_persistant_storage("led_calibrations") as c:
@@ -322,7 +364,7 @@ def list_() -> None:
             try:
                 cal = decode(c[name], type=LEDCalibration)
                 click.secho(
-                    f"{cal.name:15s} {cal.timestamp:%d %b, %Y}       {cal.channel:12s} {'✅' if cal.name in current else ''}",
+                    f"{cal.name:15s} {cal.created_at:%d %b, %Y}       {cal.channel:12s} {'✅' if cal.name in current else ''}",
                 )
             except Exception as e:
                 raise e
@@ -363,6 +405,12 @@ def click_change_current(name: str):
 @click_led_calibration.command(name="list")
 def click_list():
     list_()
+
+
+@click_led_calibration.command(name="publish")
+@click.argument("name", type=click.STRING)
+def click_publish(name: str):
+    publish_to_leader(name)
 
 
 if __name__ == "__main__":
