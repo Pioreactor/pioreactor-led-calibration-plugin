@@ -14,9 +14,9 @@ from pioreactor.mureq import patch
 from pioreactor.mureq import put
 from pioreactor.utils import is_pio_job_running
 from pioreactor.utils import local_persistant_storage
-from pioreactor.utils import publish_ready_to_disconnected_state
+from pioreactor.utils import managed_lifecycle
 from pioreactor.utils.timing import current_utc_datetime
-from pioreactor.whoami import get_latest_testing_experiment_name
+from pioreactor.whoami import get_testing_experiment_name
 from pioreactor.whoami import get_unit_name
 
 
@@ -59,7 +59,7 @@ def get_metadata_from_user():
     channel = click.prompt("Which channel is being used?", type=click.Choice(["A", "B", "C", "D"]))
 
     click.confirm(
-        f"Confirm using channel {channel} with X2 or X3 pocket positions in the Pioreactor",
+        f"Confirm using channel {channel} with X1, X2, or X3 pocket positions in the Pioreactor",
         abort=True,
         default=True,
     )
@@ -104,7 +104,7 @@ def start_recording(channel: pt.LedChannel, min_intensity, max_intensity):
     led_intensity(
         desired_state={"A": 0, "B": 0, "C": 0, "D": 0},
         unit=get_unit_name(),
-        experiment=get_latest_testing_experiment_name(),
+        experiment=get_testing_experiment_name(),
         verbose=False,
     )
 
@@ -132,7 +132,7 @@ def start_recording(channel: pt.LedChannel, min_intensity, max_intensity):
         led_intensity(
             desired_state={channel: intensity},
             unit=get_unit_name(),
-            experiment=get_latest_testing_experiment_name(),
+            experiment=get_testing_experiment_name(),
         )
 
         r = click.prompt(
@@ -148,7 +148,7 @@ def start_recording(channel: pt.LedChannel, min_intensity, max_intensity):
     led_intensity(
         desired_state={"A": 0, "B": 0, "C": 0, "D": 0},
         unit=get_unit_name(),
-        experiment=get_latest_testing_experiment_name(),
+        experiment=get_testing_experiment_name(),
         verbose=False,
     )
 
@@ -228,12 +228,12 @@ def save_results(
 ## general schematic of what's gonna happen
 def led_calibration(min_intensity: float, max_intensity: float):
     unit = get_unit_name()
-    experiment = get_latest_testing_experiment_name()
+    experiment = get_testing_experiment_name()
 
     if any(is_pio_job_running(["stirring", "od_reading"])):
         raise ValueError("Stirring and OD reading should be turned off.")
 
-    with publish_ready_to_disconnected_state(unit, experiment, "led_calibration"):
+    with managed_lifecycle(unit, experiment, "led_calibration"):
 
         introduction()
         name, channel = get_metadata_from_user()
