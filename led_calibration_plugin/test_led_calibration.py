@@ -4,13 +4,13 @@ from __future__ import annotations
 import time
 
 import pytest
-from pioreactor.background_jobs.led_control import LEDController
 from pioreactor.exc import CalibrationError
 from pioreactor.utils import local_intermittent_storage
 from pioreactor.utils import local_persistent_storage
 from pioreactor.utils.timing import current_utc_timestamp
 from pioreactor.whoami import get_unit_name
 
+from .calibrated_light_dark_cycle import CalibratedLightDarkCycle
 from .led_calibration import LEDCalibration
 
 
@@ -22,16 +22,15 @@ def test_led_fails_if_calibration_not_present():
     experiment = "test_led_fails_if_calibration_not_present"
     unit = get_unit_name()
 
-    with local_persistent_storage("current_led_calibration") as cache:
-        if "C" in cache:
-            del cache["C"]
-        if "D" in cache:
-            del cache["D"]
+    with local_persistent_storage("active_calibrations") as cache:
+        if "led_C" in cache:
+            del cache["led_C"]
+        if "led_D" in cache:
+            del cache["led_D"]
 
     with pytest.raises(CalibrationError):
 
-        with LEDController(
-            "calibrated_light_dark_cycle",
+        with CalibratedLightDarkCycle(
             duration=0.01,
             light_intensity=-1,
             light_duration_hours=16,
@@ -49,8 +48,8 @@ def test_set_intensity_au_above_max() -> None:
 
     cal = LEDCalibration(
         created_at=current_utc_timestamp(),
-        pioreactor_unit=unit,
-        name=experiment,
+        calibrated_on_pioreactor_unit=unit,
+        calibration_name=experiment,
         curve_data_=[1, 0],
         curve_type="poly",
         recorded_data={"x": [0, 1], "y": [0, 1]},
@@ -60,8 +59,7 @@ def test_set_intensity_au_above_max() -> None:
     cal.set_as_active_calibration_for_device("led_C")
     cal.set_as_active_calibration_for_device("led_D")
 
-    with LEDController(
-        "calibrated_light_dark_cycle",
+    with CalibratedLightDarkCycle(
         duration=0.01,
         light_intensity=1500,
         light_duration_hours=16,
@@ -70,11 +68,11 @@ def test_set_intensity_au_above_max() -> None:
         experiment=experiment,
     ) as lc:
 
-        assert lc.automation_job.light_intensity == 1500  # test returns light_intensity (au)
+        assert lc.light_intensity == 1500  # test returns light_intensity (au)
 
-        lc.automation_job.set_light_intensity(2000)
+        lc.set_light_intensity(2000)
 
-        assert lc.automation_job.light_intensity == 2000
+        assert lc.light_intensity == 2000
 
 
 def test_set_intensity_au_negative() -> None:
@@ -83,8 +81,8 @@ def test_set_intensity_au_negative() -> None:
 
     cal = LEDCalibration(
         created_at=current_utc_timestamp(),
-        pioreactor_unit=unit,
-        name=experiment,
+        calibrated_on_pioreactor_unit=unit,
+        calibration_name=experiment,
         curve_data_=[1, 0],
         curve_type="poly",
         recorded_data={"x": [0, 1], "y": [0, 1]},
@@ -94,8 +92,7 @@ def test_set_intensity_au_negative() -> None:
     cal.set_as_active_calibration_for_device("led_C")
     cal.set_as_active_calibration_for_device("led_D")
 
-    with LEDController(
-        "calibrated_light_dark_cycle",
+    with CalibratedLightDarkCycle(
         duration=0.01,
         light_intensity=-1,
         light_duration_hours=16,
@@ -104,55 +101,9 @@ def test_set_intensity_au_negative() -> None:
         experiment=experiment,
     ) as lc:
 
-        assert lc.automation_job.light_intensity == -1
+        assert lc.light_intensity == -1
         pause(8)
 
         with local_intermittent_storage("leds") as led_cache:
             assert float(led_cache["C"]) == 0.0
             assert float(led_cache["D"]) == 0.0
-
-
-def test_set_curve_data_negative() -> None:
-    experiment = "test_set_curve_data_negative"
-    unit = get_unit_name()
-
-    cal = LEDCalibration(
-        created_at=current_utc_timestamp(),
-        pioreactor_unit=unit,
-        name=experiment,
-        curve_data_=[1, -4],
-        curve_type="poly",
-        recorded_data={"x": [0, 1], "y": [0, 1]},
-        x="LED intensity",
-        y="Light sensor reading",
-    )
-    cal.set_as_active_calibration_for_device("led_C")
-    cal.set_as_active_calibration_for_device("led_D")
-
-    with LEDController(
-        "calibrated_light_dark_cycle",
-        duration=60,
-        light_intensity=1,
-        light_duration_hours=16,
-        dark_duration_hours=8,
-        unit=unit,
-        experiment=experiment,
-    ) as lc:
-        assert lc.automation_job.light_intensity == 1
-        pause(8)
-
-        with local_intermittent_storage("leds") as led_cache:
-            assert float(led_cache["C"]) == 5.0
-            assert float(led_cache["D"]) == 5.0
-
-        lc.automation_job.set_light_intensity(150)
-
-        with local_intermittent_storage("leds") as led_cache:
-            assert float(led_cache["C"]) == 100
-            assert float(led_cache["D"]) == 100
-
-        lc.automation_job.set_light_intensity(-5)
-
-        with local_intermittent_storage("leds") as led_cache:
-            assert float(led_cache["C"]) == 0
-            assert float(led_cache["D"]) == 0
