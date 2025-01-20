@@ -4,11 +4,10 @@ from __future__ import annotations
 import time
 
 import pytest
-from msgspec.json import encode
 from pioreactor.background_jobs.led_control import LEDController
 from pioreactor.exc import CalibrationError
 from pioreactor.utils import local_intermittent_storage
-from pioreactor.utils import local_persistant_storage
+from pioreactor.utils import local_persistent_storage
 from pioreactor.utils.timing import current_utc_timestamp
 from pioreactor.whoami import get_unit_name
 
@@ -23,7 +22,7 @@ def test_led_fails_if_calibration_not_present():
     experiment = "test_led_fails_if_calibration_not_present"
     unit = get_unit_name()
 
-    with local_persistant_storage("current_led_calibration") as cache:
+    with local_persistent_storage("current_led_calibration") as cache:
         if "C" in cache:
             del cache["C"]
         if "D" in cache:
@@ -48,40 +47,18 @@ def test_set_intensity_au_above_max() -> None:
     experiment = "test_set_intensity_au_above_max"
     unit = get_unit_name()
 
-    with local_persistant_storage("current_led_calibration") as cache:
-        cache["C"] = encode(
-            LEDCalibration(
-                created_at=current_utc_timestamp(),
-                pioreactor_unit=unit,
-                name=experiment,
-                max_intensity=100,
-                min_intensity=0,
-                min_lightprobe_readings=0,
-                max_lightprobe_readings=1000,
-                curve_data_=[1, 0],
-                curve_type="poly",
-                lightprobe_readings=[],
-                led_intensities=[],
-                channel="C",
-            )
-        )
-
-        cache["D"] = encode(
-            LEDCalibration(
-                created_at=current_utc_timestamp(),
-                pioreactor_unit=unit,
-                name=experiment,
-                max_intensity=100,
-                min_intensity=0,
-                min_lightprobe_readings=0,
-                max_lightprobe_readings=1000,
-                curve_data_=[1, 0],
-                curve_type="poly",
-                lightprobe_readings=[],
-                led_intensities=[],
-                channel="D",
-            )
-        )
+    cal = LEDCalibration(
+        created_at=current_utc_timestamp(),
+        pioreactor_unit=unit,
+        name=experiment,
+        curve_data_=[1, 0],
+        curve_type="poly",
+        recorded_data={"x": [0, 1], "y": [0, 1]},
+        x="LED intensity",
+        y="Light sensor reading",
+    )
+    cal.set_as_active_calibration_for_device("led_C")
+    cal.set_as_active_calibration_for_device("led_D")
 
     with LEDController(
         "calibrated_light_dark_cycle",
@@ -104,40 +81,18 @@ def test_set_intensity_au_negative() -> None:
     experiment = "test_set_intensity_au_negative"
     unit = get_unit_name()
 
-    with local_persistant_storage("current_led_calibration") as cache:
-        cache["C"] = encode(
-            LEDCalibration(
-                created_at=current_utc_timestamp(),
-                pioreactor_unit=unit,
-                name=experiment,
-                max_intensity=100,
-                min_intensity=0,
-                min_lightprobe_readings=0,
-                max_lightprobe_readings=1000,
-                curve_data_=[1, 0],
-                curve_type="poly",
-                lightprobe_readings=[],
-                led_intensities=[],
-                channel="C",
-            )
-        )
-
-        cache["D"] = encode(
-            LEDCalibration(
-                created_at=current_utc_timestamp(),
-                pioreactor_unit=unit,
-                name=experiment,
-                max_intensity=100,
-                min_intensity=0,
-                min_lightprobe_readings=0,
-                max_lightprobe_readings=1000,
-                curve_data_=[10, 0],
-                curve_type="poly",
-                lightprobe_readings=[],
-                led_intensities=[],
-                channel="D",
-            )
-        )
+    cal = LEDCalibration(
+        created_at=current_utc_timestamp(),
+        pioreactor_unit=unit,
+        name=experiment,
+        curve_data_=[1, 0],
+        curve_type="poly",
+        recorded_data={"x": [0, 1], "y": [0, 1]},
+        x="LED intensity",
+        y="Light sensor reading",
+    )
+    cal.set_as_active_calibration_for_device("led_C")
+    cal.set_as_active_calibration_for_device("led_D")
 
     with LEDController(
         "calibrated_light_dark_cycle",
@@ -161,41 +116,18 @@ def test_set_curve_data_negative() -> None:
     experiment = "test_set_curve_data_negative"
     unit = get_unit_name()
 
-    with local_persistant_storage("current_led_calibration") as cache:
-        cache["C"] = encode(
-            LEDCalibration(
-                created_at=current_utc_timestamp(),
-                pioreactor_unit=unit,
-                name=experiment,
-                max_intensity=100,
-                min_intensity=0,
-                min_lightprobe_readings=0,
-                max_lightprobe_readings=1000,
-                curve_data_=[1, -4],
-                curve_type="poly",
-                lightprobe_readings=[],
-                led_intensities=[],
-                channel="C",
-            )
-        )
-
-    with local_persistant_storage("current_led_calibration") as cache:
-        cache["D"] = encode(
-            LEDCalibration(
-                created_at=current_utc_timestamp(),
-                pioreactor_unit=unit,
-                name=experiment,
-                max_intensity=100,
-                min_intensity=0,
-                min_lightprobe_readings=0,
-                max_lightprobe_readings=1000,
-                curve_data_=[1, -4],
-                curve_type="poly",
-                lightprobe_readings=[],
-                led_intensities=[],
-                channel="D",
-            )
-        )
+    cal = LEDCalibration(
+        created_at=current_utc_timestamp(),
+        pioreactor_unit=unit,
+        name=experiment,
+        curve_data_=[1, -4],
+        curve_type="poly",
+        recorded_data={"x": [0, 1], "y": [0, 1]},
+        x="LED intensity",
+        y="Light sensor reading",
+    )
+    cal.set_as_active_calibration_for_device("led_C")
+    cal.set_as_active_calibration_for_device("led_D")
 
     with LEDController(
         "calibrated_light_dark_cycle",

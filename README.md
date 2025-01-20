@@ -14,11 +14,11 @@ This plugin offers the ability to calibrate your LEDs using an **external light 
 Install from the command line.
 
 ```
-pio install-plugin led-calibration-plugin  ## to install on a single Pioreactor
+pio plugins install led-calibration-plugin  ## to install on a single Pioreactor
 
 ## OR, on the command line of the leader Pioreactor
 
-pios install-plugin led-calibration-plugin ## to install on all Pioreactors in a cluster
+pios plugins install led-calibration-plugin ## to install on all Pioreactors in a cluster
 ```
 
 This plugin is also available on the Pioreactor web interface, in the _Plugins_ tab. Downloading from the web interface will install on all Pioreactors in a cluster.

@@ -7,7 +7,7 @@ from pioreactor.automations.led.base import LEDAutomationJobContrib
 from pioreactor.exc import CalibrationError
 from pioreactor.types import LedChannel
 from pioreactor.utils import clamp
-from pioreactor.utils import local_persistant_storage
+from pioreactor.utils import local_persistent_storage
 
 from .led_calibration import LEDCalibration
 
@@ -44,18 +44,23 @@ class CalibratedLightDarkCycle(LEDAutomationJobContrib):
         self.light_duration_hours = float(light_duration_hours)
         self.dark_duration_hours = float(dark_duration_hours)
 
-        with local_persistant_storage("current_led_calibration") as cache:
+        with local_persistent_storage("active_calibrations") as cache:
             for channel in self.channels:
-                if channel not in cache:
+                if self.channel_to_led_device(channel) not in cache:
                     raise CalibrationError(f"Calibration for {channel} does not exist.")
+
+    def channel_to_led_device(self, channel: LedChannel) -> str:
+        return f"led_{channel}"
 
     def execute(self) -> events.AutomationEvent:
         self.hours_online += 1
         return self.trigger_leds(self.hours_online)
 
     def calculate_intensity_percent(self, channel):
-        with local_persistant_storage("current_led_calibration") as cache:
-            led_calibration = decode(cache[channel], type=LEDCalibration)
+        with local_persistent_storage("current_led_calibration") as cache:
+            led_calibration = decode(
+                cache[self.channel_to_led_device(channel)], type=LEDCalibration
+            )
 
             intensity_percent = (
                 self.light_intensity - led_calibration.curve_data_[1]
