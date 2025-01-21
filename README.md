@@ -28,8 +28,8 @@ This plugin is also available on the Pioreactor web interface, in the _Plugins_ 
 Type into your command line:
 
 ```
-pio calibrations --device-name led_C --protocol-name led_calibration
-pio calibrations --device-name led_D --protocol-name led_calibration
+pio calibrations run --device led_C --protocol-name led_calibration
+pio calibrations run --device led_D --protocol-name led_calibration
 ```
 
 To perform this calibration, insert your vial containing media into the Pioreactor and submerge your light probe. Follow the prompts on the command line. The plugin will increase the light intensity, and prompt you to record the readings from your light probe. A calibration line of best fit will be generated based on your light probe readings.
